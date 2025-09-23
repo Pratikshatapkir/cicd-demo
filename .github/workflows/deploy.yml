@@ -1,0 +1,44 @@
+name: Deploy React App to EC2
+
+on:
+  push:
+    branches:
+      - main   # or your default branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2️⃣ Set up Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # 4️⃣ Build React app
+      - name: Build React app
+        run: npm run build
+
+      # 5️⃣ Save SSH key from GitHub Secrets
+      - name: Save SSH key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+
+      # 6️⃣ Deploy build folder to EC2 and restart NGINX
+      - name: Deploy to EC2
+        run: |
+          # Copy build files to EC2
+          rsync -avz -e "ssh -i private_key.pem -o StrictHostKeyChecking=no" build/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/myapp/
+          
+          # Restart NGINX on EC2
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "sudo systemctl restart nginx"
